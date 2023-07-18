@@ -1,0 +1,1 @@
+from src.module.abstractmodel.core import hmm
