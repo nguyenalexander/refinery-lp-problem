@@ -53,6 +53,12 @@ class RefineryOptimizationAbstract:
             ('fo', 'cc', 'fo_sp'): {('fo', 'fo_sp', 'df_tk'), ('fo', 'fo_sp', 'fo_tk')}
         }
 
+        self.splitpoint_dict_mp = {}
+        for t in range(1, 6, 1):
+            for i in self.splitpoint_dict:
+                self.splitpoint_dict_mp[(i + (t,))] = {(j + (t,)) for j in self.splitpoint_dict[i]}
+
+
         # product demand data
         self.product_demand_data = {
             ('pg_prod', 'pg_tk', 'pg_out'): 10000,
@@ -150,6 +156,7 @@ class RefineryOptimizationAbstract:
 
         self.sp_in_list = [('srg', 'ad', 'srg_sp'), ('srn', 'ad', 'srn_sp'), ('srds', 'ad', 'srds_sp'), ('srfo', 'ad', 'srfo_sp'), ('rfg', 'rf', 'rfg_sp'), ('ccg', 'cc', 'ccg_sp'), ('fo', 'cc', 'fo_sp')]
 
+
     def build_model(self):
         """
         Build the optimization model with constraints and objectives.
@@ -176,15 +183,17 @@ class RefineryOptimizationAbstract:
         # combination of the materials to the unit pairs using the map dictionary
         # initialize statement creates a list of triplet sets of the key to the value pairs (e.g. [('srg', 'ad', 'pg'), ('srg', 'ad', 'rg'), ...])
         model.flowpairs = pyomo.Set(within=model.materials * model.unitpairs, initialize=[(m, u) for m in self.map_to_units for u in self.map_to_units[m]])
-
         model.flowpairs2 = pyomo.Set(within=model.materials * model.unitpairs * model.timeperiods, initialize=[(m, u, t) for m in self.map_to_units for u in self.map_to_units[m] for t in pyomo.RangeSet(1, 5, 1)])
 
         # Set of flows going into the splitpoint nodes
         model.sp_in = pyomo.Set(dimen=3, initialize=self.sp_in_list)
+        model.sp_in2 = pyomo.Set(dimen=4, initialize=self.sp_in_list * model.timeperiods)
 
         # Splitpoints Set (each key in dictionary is the input to the sp, and the corresponding list is the outputs)
         # Must declare the Set as the inputs and initialize with the full dictionary and added to the data dictionary as well to avoid unordered errors
         model.splitpoints = pyomo.Set(model.sp_in, initialize=self.splitpoint_dict)
+        # model.splitpoints2 = pyomo.Set(model.sp_in2, initialize=[(u, t) for m in self.splitpoint_dict for u in self.splitpoint_dict[m] for t in pyomo.RangeSet(1, 5, 1)])
+        model.splitpoints2 = pyomo.Set(model.sp_in2, initialize=self.splitpoint_dict_mp)
 
         # Set for the cost streams
         model.cost_set = pyomo.Set(within=model.flowpairs, initialize=list(self.cost_data.keys()))
