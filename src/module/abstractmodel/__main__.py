@@ -14,7 +14,7 @@ class RefineryOptimizationAbstract:
         self.map_to_units = {
             'crude': {('crude_source', 'ad')},
             'srg': {('ad', 'srg_sp'), ('srg_sp', 'pg_tk'), ('srg_sp', 'rg_tk')},
-            'srn': {('ad', 'srn_sp'), ('srn_sp', 'rf'), ('srn_sp', 'pg_tk'), ('srn_sp', 'rg_tk'), ('srn_sp', 'df_tk')},
+            'srn': {('ad', 'srn_sp'), ('srn_sp', 'rf'), ('srn_sp', 'pg_tk'), ('srn_sp', 'rg_tk'), ('srn_sp', 'df_tk'), ('srn_sp', 'srn_tk'), ('srn_tk', 'rf')},
             'srds': {('ad', 'srds_sp'), ('srds_sp', 'cc'), ('srds_sp', 'df_tk'), ('srds_sp', 'fo_tk')},
             'srfo': {('ad', 'srfo_sp'), ('srfo_sp', 'cc'), ('srfo_sp', 'df_tk'), ('srfo_sp', 'fo_tk')},
             'rfg': {('rf', 'rfg_sp'), ('rfg_sp', 'pg_tk'), ('rfg_sp', 'rg_tk')},
@@ -39,13 +39,14 @@ class RefineryOptimizationAbstract:
             ('pg_prod', 'pg_tk', 'pg_out'): 45.36,
             ('rg_prod', 'rg_tk', 'rg_out'): 43.68,
             ('df_prod', 'df_tk', 'df_out'): 40.32,
-            ('fo_prod', 'fo_tk', 'fo_out'): 13.14
+            ('fo_prod', 'fo_tk', 'fo_out'): 13.14,
+            ('srn', 'srn_sp', 'srn_tk'): -0.5
         }
 
         # dictionary of each split origin and the respective split streams
         self.splitpoint_dict = {
             ('srg', 'ad', 'srg_sp'): {('srg', 'srg_sp', 'pg_tk'), ('srg', 'srg_sp', 'rg_tk')},
-            ('srn', 'ad', 'srn_sp'): {('srn', 'srn_sp', 'rf'), ('srn', 'srn_sp', 'pg_tk'), ('srn', 'srn_sp', 'rg_tk'), ('srn', 'srn_sp', 'df_tk')},
+            ('srn', 'ad', 'srn_sp'): {('srn', 'srn_sp', 'rf'), ('srn', 'srn_sp', 'pg_tk'), ('srn', 'srn_sp', 'rg_tk'), ('srn', 'srn_sp', 'df_tk'), ('srn', 'srn_sp', 'srn_tk')},
             ('srds', 'ad', 'srds_sp'): {('srds', 'srds_sp', 'cc'), ('srds', 'srds_sp', 'df_tk'), ('srds', 'srds_sp', 'fo_tk')},
             ('srfo', 'ad', 'srfo_sp'): {('srfo', 'srfo_sp', 'cc'), ('srfo', 'srfo_sp', 'df_tk'), ('srfo', 'srfo_sp', 'fo_tk')},
             ('rfg', 'rf', 'rfg_sp'): {('rfg', 'rfg_sp', 'pg_tk'), ('rfg', 'rfg_sp', 'rg_tk')},
@@ -156,6 +157,35 @@ class RefineryOptimizationAbstract:
 
         self.sp_in_list = [('srg', 'ad', 'srg_sp'), ('srn', 'ad', 'srn_sp'), ('srds', 'ad', 'srds_sp'), ('srfo', 'ad', 'srfo_sp'), ('rfg', 'rf', 'rfg_sp'), ('ccg', 'cc', 'ccg_sp'), ('fo', 'cc', 'fo_sp')]
 
+        self.srn_tank_height = 10  # meters
+        self.srn_tank_radius = 5  # meters
+
+        self.tank_height = {
+            'srn_tk': 10
+        }
+        self.tank_radius = {
+            'srn_tk': 5
+        }
+
+        self.tank_area = {
+            'srn_tk': (2*np.pi*self.tank_radius['srn_tk'] * self.tank_height['srn_tk'] + np.pi*self.tank_radius['srn_tk']**2)  # m2
+        }
+        self.bbl_to_m3 = 0.158  # 0.158m3/bbl
+        self.timedelta = 1
+
+        self.tank_list = ['srn_tk']
+        self.tank_in_dict = {
+            'srn_tk': [('srn', 'srn_sp', 'srn_tk')]
+        }
+        self.tank_out_dict = {
+            'srn_tk': [('srn', 'srn_tk', 'rf')]
+        }
+
+        self.tank_holding_cost_data = {
+            'srn_tk': 1.5
+        }
+
+
 
     def build_model(self):
         """
@@ -252,13 +282,20 @@ class RefineryOptimizationAbstract:
         model.fo_density_spec = pyomo.Param(model.fo_set, initialize=self.fo_density_data)
         model.fo_sulfur_spec = pyomo.Param(model.fo_set, initialize=self.fo_sulfur_data)
 
+        # Tanks
+        model.tank_set = pyomo.Set(initialize=self.tank_list)
+        model.tank_in_set = pyomo.Set(model.tank_set, initialize=self.tank_in_dict)
+        model.tank_out_set = pyomo.Set(model.tank_set, initialize=self.tank_out_dict)
+        model.tank_holding_cost = pyomo.Param(self.tank_holding_cost_data.keys(), initialize=self.tank_holding_cost_data)
+        model.m = pyomo.Var(model.tank_set, model.timeperiods, domain=pyomo.NonNegativeReals)
+
         # ==============================================================================
         # ================================= OBJECTIVES =================================
         # ==============================================================================
 
         # Objective Function (profit = products - operating cost - crude cost)
         def profit_objective(model):
-            return sum(model.x[c, t] * model.costs[c] for c in model.costs for t in model.timeperiods)
+            return sum(model.x[c, t] * model.costs[c] for c in model.costs for t in model.timeperiods) - sum(model.tank_holding_cost[tank] * model.m[tank, t] for tank in model.tank_set for t in model.timeperiods)
 
         model.objectivefunction = pyomo.Objective(rule=profit_objective, sense=pyomo.maximize)
 
@@ -280,7 +317,7 @@ class RefineryOptimizationAbstract:
             return model.x['crude', 'crude_source', 'ad', t] <= 100000
 
         def rf_capacity(model, t):
-            return model.x['srn', 'srn_sp', 'rf', t] <= 25000
+            return model.x['srn', 'srn_sp', 'rf', t] + model.x['srn', 'srn_tk', 'rf', t] <= 25000
 
         def cc_capacity(model, t):
             return model.x['srds', 'srds_sp', 'cc', t] + model.x['srfo', 'srfo_sp', 'cc', t] <= 30000
@@ -296,7 +333,7 @@ class RefineryOptimizationAbstract:
             return model.x[mat, uin, uout, t] == model.x['crude', 'crude_source', 'ad', t] * model.ad_yield_coef[mat, uin, uout]
 
         def rf_yield(model, mat, uin, uout, t):
-            return model.x[mat, uin, uout, t] == model.x['srn', 'srn_sp', 'rf', t] * model.rf_yield_coef[mat, uin, uout]
+            return model.x[mat, uin, uout, t] == model.x['srn', 'srn_sp', 'rf', t] * model.rf_yield_coef[mat, uin, uout] + model.x['srn', 'srn_tk', 'rf', t] * model.rf_yield_coef[mat, uin, uout]
 
         def cc_yield(model, mat, uin, uout, t):
             return model.x[mat, uin, uout, t] == model.x['srds', 'srds_sp', 'cc', t] * model.cc_srds_yield_coef[mat, uin, uout] + model.x['srfo', 'srfo_sp', 'cc', t] * model.cc_srfo_yield_coef[mat, uin, uout]
@@ -366,11 +403,31 @@ class RefineryOptimizationAbstract:
         model.fo_density_req = pyomo.Constraint(model.timeperiods, rule=fo_density)
         model.fo_sulfur_req = pyomo.Constraint(model.timeperiods, rule=fo_sulfur)
 
+        # ===============================================================================
+        # ==================================== TANKS ====================================
+        # ===============================================================================
+
+        def tank_balance(model, tank, t):
+            if t == 1:
+                return (model.m[tank, t] - 0)/self.timedelta - sum(model.x[a, b, c, t] for (a, b, c) in model.tank_in_set[tank]) + sum(model.x[d, e, f, t] for (d, e, f) in model.tank_out_set[tank]) == 0
+            else:
+                return (model.m[tank, t] - model.m[tank, t-1])/self.timedelta - sum(model.x[a, b, c, t] for (a, b, c) in model.tank_in_set[tank]) + sum(model.x[d, e, f, t] for (d, e, f) in model.tank_out_set[tank]) == 0
+        model.tank_volbalance = pyomo.Constraint(model.tank_set, model.timeperiods, rule=tank_balance)
+
+        def tank_height(model, tank, t):
+            return model.m[tank, t] * self.bbl_to_m3 / self.tank_area[tank] <= self.tank_height[tank]
+        model.tank_height_limit = pyomo.Constraint(model.tank_set, model.timeperiods, rule=tank_height)
+
+
         # Create instance of model
         instance = model.create_instance(data)
 
         # Fix if required
         # instance.x['crude', 'crude_source', 'ad'].fix(100000)
+
+        # Shutting down reformer for period 4 - infeasible
+        # instance.x['srn', 'srn_tk', 'rf', 4].fix(0)
+        # instance.x['srn', 'srn_sp', 'rf', 4].fix(0)
 
         # Display instance information
         instance.pprint()
@@ -388,6 +445,17 @@ class RefineryOptimizationAbstract:
     def print_output(self, opt_model):
         """Prints the flow rates, then the total profit and production of each product and their properties."""
         opt_model.display()
+
+        for t in opt_model.timeperiods:
+            print('~~~~~~~~~~~~~ Timeperiod :', t, ' ~~~~~~~~~~~~~')
+            print('PG Octane:', sum(pyomo.value(opt_model.x[mat, uin, uout, t]) * pyomo.value(opt_model.pg_octane_rating[mat, uin, uout]) for (mat, uin, uout) in opt_model.pg_set) / pyomo.value(opt_model.x['pg_prod', 'pg_tk', 'pg_out', t]))
+            print('PG Vapour Pressure:', sum(pyomo.value(opt_model.x[mat, uin, uout, t]) * pyomo.value(opt_model.pg_vpress_rating[mat, uin, uout]) for (mat, uin, uout) in opt_model.pg_set) / pyomo.value(opt_model.x['pg_prod', 'pg_tk', 'pg_out', t]))
+            print('RG Octane:', sum(pyomo.value(opt_model.x[mat, uin, uout, t]) * pyomo.value(opt_model.rg_octane_rating[mat, uin, uout]) for (mat, uin, uout) in opt_model.rg_set) / pyomo.value(opt_model.x['rg_prod', 'rg_tk', 'rg_out', t]))
+            print('RG Vapour Pressure:', sum(pyomo.value(opt_model.x[mat, uin, uout, t]) * pyomo.value(opt_model.rg_vpress_rating[mat, uin, uout]) for (mat, uin, uout) in opt_model.rg_set) / pyomo.value(opt_model.x['rg_prod', 'rg_tk', 'rg_out', t]))
+            print('DF Density:', sum(pyomo.value(opt_model.x[mat, uin, uout, t]) * pyomo.value(opt_model.df_density_spec[mat, uin, uout]) for (mat, uin, uout) in opt_model.df_set) / pyomo.value(opt_model.x['df_prod', 'df_tk', 'df_out', t]))
+            print('DF Sulfur:', sum(pyomo.value(opt_model.x[mat, uin, uout, t]) * pyomo.value(opt_model.df_sulfur_spec[mat, uin, uout]) for (mat, uin, uout) in opt_model.df_set) / pyomo.value(opt_model.x['df_prod', 'df_tk', 'df_out', t]))
+            print('FO Density:', sum(pyomo.value(opt_model.x[mat, uin, uout, t]) * pyomo.value(opt_model.fo_density_spec[mat, uin, uout]) for (mat, uin, uout) in opt_model.fo_set) / pyomo.value(opt_model.x['fo_prod', 'fo_tk', 'fo_out', t]))
+            print('FO Sulfur:', sum(pyomo.value(opt_model.x[mat, uin, uout, t]) * pyomo.value(opt_model.fo_sulfur_spec[mat, uin, uout]) for (mat, uin, uout) in opt_model.fo_set) / pyomo.value(opt_model.x['fo_prod', 'fo_tk', 'fo_out', t]))
 
 
 def main():
