@@ -182,21 +182,20 @@ class RefineryOptimizationAbstract:
 
         # combination of the materials to the unit pairs using the map dictionary
         # initialize statement creates a list of triplet sets of the key to the value pairs (e.g. [('srg', 'ad', 'pg'), ('srg', 'ad', 'rg'), ...])
-        model.flowpairs = pyomo.Set(within=model.materials * model.unitpairs, initialize=[(m, u) for m in self.map_to_units for u in self.map_to_units[m]])
-        model.flowpairs2 = pyomo.Set(within=model.materials * model.unitpairs * model.timeperiods, initialize=[(m, u, t) for m in self.map_to_units for u in self.map_to_units[m] for t in pyomo.RangeSet(1, 5, 1)])
+        # model.flowpairs = pyomo.Set(within=model.materials * model.unitpairs, initialize=[(m, u) for m in self.map_to_units for u in self.map_to_units[m]])
+        model.flowpairs = pyomo.Set(within=model.materials * model.unitpairs * model.timeperiods, initialize=[(m, u, t) for m in self.map_to_units for u in self.map_to_units[m] for t in pyomo.RangeSet(1, 5, 1)])
 
         # Set of flows going into the splitpoint nodes
-        model.sp_in = pyomo.Set(dimen=3, initialize=self.sp_in_list)
-        model.sp_in2 = pyomo.Set(dimen=4, initialize=self.sp_in_list * model.timeperiods)
+        # model.sp_in = pyomo.Set(dimen=3, initialize=self.sp_in_list)
+        model.sp_in = pyomo.Set(dimen=4, initialize=self.sp_in_list * model.timeperiods)
 
         # Splitpoints Set (each key in dictionary is the input to the sp, and the corresponding list is the outputs)
         # Must declare the Set as the inputs and initialize with the full dictionary and added to the data dictionary as well to avoid unordered errors
-        model.splitpoints = pyomo.Set(model.sp_in, initialize=self.splitpoint_dict)
-        # model.splitpoints2 = pyomo.Set(model.sp_in2, initialize=[(u, t) for m in self.splitpoint_dict for u in self.splitpoint_dict[m] for t in pyomo.RangeSet(1, 5, 1)])
-        model.splitpoints2 = pyomo.Set(model.sp_in2, initialize=self.splitpoint_dict_mp)
+        # model.splitpoints = pyomo.Set(model.sp_in, initialize=self.splitpoint_dict)
+        model.splitpoints = pyomo.Set(model.sp_in, initialize=self.splitpoint_dict_mp)
 
         # Set for the cost streams
-        model.cost_set = pyomo.Set(within=model.flowpairs, initialize=list(self.cost_data.keys()))
+        model.cost_set = pyomo.Set(initialize=list(self.cost_data.keys()))
 
         # Flow rate variable
         model.x = pyomo.Var(model.flowpairs, domain=pyomo.NonNegativeReals)
@@ -223,9 +222,9 @@ class RefineryOptimizationAbstract:
 
         # Yields
         # Sets
-        model.ad_outflows = pyomo.Set(within=model.flowpairs, initialize=[('fg', 'ad', 'fg_sink'), ('srg', 'ad', 'srg_sp'), ('srn', 'ad', 'srn_sp'), ('srds', 'ad', 'srds_sp'), ('srfo', 'ad', 'srfo_sp')])
-        model.rf_outflows = pyomo.Set(within=model.flowpairs, initialize=[('fg', 'rf', 'fg_sink'), ('rfg', 'rf', 'rfg_sp')])
-        model.cc_outflows = pyomo.Set(within=model.flowpairs, initialize=[('fg', 'cc', 'fg_sink'), ('ccg', 'cc', 'ccg_sp'), ('fo', 'cc', 'fo_sp')])
+        model.ad_outflows = pyomo.Set(initialize=[('fg', 'ad', 'fg_sink'), ('srg', 'ad', 'srg_sp'), ('srn', 'ad', 'srn_sp'), ('srds', 'ad', 'srds_sp'), ('srfo', 'ad', 'srfo_sp')])
+        model.rf_outflows = pyomo.Set(initialize=[('fg', 'rf', 'fg_sink'), ('rfg', 'rf', 'rfg_sp')])
+        model.cc_outflows = pyomo.Set(initialize=[('fg', 'cc', 'fg_sink'), ('ccg', 'cc', 'ccg_sp'), ('fo', 'cc', 'fo_sp')])
 
         # Parameters
         model.ad_yield_coef = pyomo.Param(model.ad_outflows, initialize=self.ad_yield_coef)
@@ -234,14 +233,14 @@ class RefineryOptimizationAbstract:
         model.cc_srfo_yield_coef = pyomo.Param(model.cc_outflows, initialize=self.cc_srfo_yield_coef)
 
         # Demand
-        model.product_set = pyomo.Set(within=model.flowpairs, initialize=[('pg_prod', 'pg_tk', 'pg_out'), ('rg_prod', 'rg_tk', 'rg_out'), ('df_prod', 'df_tk', 'df_out'), ('fo_prod', 'fo_tk', 'fo_out')])
+        model.product_set = pyomo.Set(initialize=[('pg_prod', 'pg_tk', 'pg_out'), ('rg_prod', 'rg_tk', 'rg_out'), ('df_prod', 'df_tk', 'df_out'), ('fo_prod', 'fo_tk', 'fo_out')])
         model.product_demand_numbers = pyomo.Param(model.product_set, initialize=self.product_demand_data)
 
         # Blend Tank Balance Sets
-        model.pg_set = pyomo.Set(within=model.flowpairs, initialize=[('srg', 'srg_sp', 'pg_tk'), ('rfg', 'rfg_sp', 'pg_tk'), ('srn', 'srn_sp', 'pg_tk'), ('ccg', 'ccg_sp', 'pg_tk')])
-        model.rg_set = pyomo.Set(within=model.flowpairs, initialize=[('srg', 'srg_sp', 'rg_tk'), ('rfg', 'rfg_sp', 'rg_tk'), ('srn', 'srn_sp', 'rg_tk'), ('ccg', 'ccg_sp', 'rg_tk')])
-        model.df_set = pyomo.Set(within=model.flowpairs, initialize=[('srn', 'srn_sp', 'df_tk'), ('fo', 'fo_sp', 'df_tk'), ('srds', 'srds_sp', 'df_tk'), ('srfo', 'srfo_sp', 'df_tk')])
-        model.fo_set = pyomo.Set(within=model.flowpairs, initialize=[('fo', 'fo_sp', 'fo_tk'), ('srds', 'srds_sp', 'fo_tk'), ('srfo', 'srfo_sp', 'fo_tk')])
+        model.pg_set = pyomo.Set(initialize=[('srg', 'srg_sp', 'pg_tk'), ('rfg', 'rfg_sp', 'pg_tk'), ('srn', 'srn_sp', 'pg_tk'), ('ccg', 'ccg_sp', 'pg_tk')])
+        model.rg_set = pyomo.Set(initialize=[('srg', 'srg_sp', 'rg_tk'), ('rfg', 'rfg_sp', 'rg_tk'), ('srn', 'srn_sp', 'rg_tk'), ('ccg', 'ccg_sp', 'rg_tk')])
+        model.df_set = pyomo.Set(initialize=[('srn', 'srn_sp', 'df_tk'), ('fo', 'fo_sp', 'df_tk'), ('srds', 'srds_sp', 'df_tk'), ('srfo', 'srfo_sp', 'df_tk')])
+        model.fo_set = pyomo.Set(initialize=[('fo', 'fo_sp', 'fo_tk'), ('srds', 'srds_sp', 'fo_tk'), ('srfo', 'srfo_sp', 'fo_tk')])
 
         # Quality Constraint Parameters
         model.pg_octane_rating = pyomo.Param(model.pg_set, initialize=self.pg_octane_data)
@@ -259,7 +258,7 @@ class RefineryOptimizationAbstract:
 
         # Objective Function (profit = products - operating cost - crude cost)
         def profit_objective(model):
-            return sum(model.x[c] * model.costs[c] for c in model.costs)
+            return sum(model.x[c, t] * model.costs[c] for c in model.costs for t in model.timeperiods)
 
         model.objectivefunction = pyomo.Objective(rule=profit_objective, sense=pyomo.maximize)
 
@@ -268,104 +267,104 @@ class RefineryOptimizationAbstract:
         # ===============================================================================
 
         # Splitpoint Balances
-        def splitpoint_balance(model, mat, uin, uout):
-            return model.x[mat, uin, uout] - sum(model.x[i] for i in model.splitpoints[mat, uin, uout]) == 0
+        def splitpoint_balance(model, mat, uin, uout, t):
+            return model.x[mat, uin, uout, t] - sum(model.x[a, b, c, t] for (a, b, c) in self.splitpoint_dict[mat, uin, uout]) == 0
 
         model.splitpoint_volbalance = pyomo.Constraint(model.sp_in, rule=splitpoint_balance)
 
         # Capacity Equations
-        def ad_crude_limit(model):
-            return model.x['crude', 'crude_source', 'ad'] <= 110000
+        def ad_crude_limit(model, t):
+            return model.x['crude', 'crude_source', 'ad', t] <= 110000
 
-        def ad_capacity(model):
-            return model.x['crude', 'crude_source', 'ad'] <= 100000
+        def ad_capacity(model, t):
+            return model.x['crude', 'crude_source', 'ad', t] <= 100000
 
-        def rf_capacity(model):
-            return model.x['srn', 'srn_sp', 'rf'] <= 25000
+        def rf_capacity(model, t):
+            return model.x['srn', 'srn_sp', 'rf', t] <= 25000
 
-        def cc_capacity(model):
-            return model.x['srds', 'srds_sp', 'cc'] + model.x['srfo', 'srfo_sp', 'cc'] <= 30000
+        def cc_capacity(model, t):
+            return model.x['srds', 'srds_sp', 'cc', t] + model.x['srfo', 'srfo_sp', 'cc', t] <= 30000
 
         # Capacity Constraints
-        model.crudecap = pyomo.Constraint(rule=ad_crude_limit)
-        model.adcap = pyomo.Constraint(rule=ad_capacity)
-        model.rfcap = pyomo.Constraint(rule=rf_capacity)
-        model.cccap = pyomo.Constraint(rule=cc_capacity)
+        model.crudecap = pyomo.Constraint(model.timeperiods, rule=ad_crude_limit)
+        model.adcap = pyomo.Constraint(model.timeperiods, rule=ad_capacity)
+        model.rfcap = pyomo.Constraint(model.timeperiods, rule=rf_capacity)
+        model.cccap = pyomo.Constraint(model.timeperiods, rule=cc_capacity)
 
         # Yield Equations
-        def ad_yield(model, mat, uin, uout):
-            return model.x[mat, uin, uout] == model.x['crude', 'crude_source', 'ad'] * model.ad_yield_coef[mat, uin, uout]
+        def ad_yield(model, mat, uin, uout, t):
+            return model.x[mat, uin, uout, t] == model.x['crude', 'crude_source', 'ad', t] * model.ad_yield_coef[mat, uin, uout]
 
-        def rf_yield(model, mat, uin, uout):
-            return model.x[mat, uin, uout] == model.x['srn', 'srn_sp', 'rf'] * model.rf_yield_coef[mat, uin, uout]
+        def rf_yield(model, mat, uin, uout, t):
+            return model.x[mat, uin, uout, t] == model.x['srn', 'srn_sp', 'rf', t] * model.rf_yield_coef[mat, uin, uout]
 
-        def cc_yield(model, mat, uin, uout):
-            return model.x[mat, uin, uout] == model.x['srds', 'srds_sp', 'cc'] * model.cc_srds_yield_coef[mat, uin, uout] + model.x['srfo', 'srfo_sp', 'cc'] * model.cc_srfo_yield_coef[mat, uin, uout]
+        def cc_yield(model, mat, uin, uout, t):
+            return model.x[mat, uin, uout, t] == model.x['srds', 'srds_sp', 'cc', t] * model.cc_srds_yield_coef[mat, uin, uout] + model.x['srfo', 'srfo_sp', 'cc', t] * model.cc_srfo_yield_coef[mat, uin, uout]
 
         # Yield Constraints
-        model.ad_output = pyomo.Constraint(model.ad_outflows, rule=ad_yield)
-        model.rf_output = pyomo.Constraint(model.rf_outflows, rule=rf_yield)
-        model.cc_output = pyomo.Constraint(model.cc_outflows, rule=cc_yield)
+        model.ad_output = pyomo.Constraint(model.ad_outflows, model.timeperiods, rule=ad_yield)
+        model.rf_output = pyomo.Constraint(model.rf_outflows, model.timeperiods, rule=rf_yield)
+        model.cc_output = pyomo.Constraint(model.cc_outflows, model.timeperiods, rule=cc_yield)
 
         # Demand Equations and Constraints
-        def product_demand(model, mat, uin, uout):
-            return model.x[mat, uin, uout] >= model.product_demand_numbers[mat, uin, uout]
+        def product_demand(model, mat, uin, uout, t):
+            return model.x[mat, uin, uout, t] >= model.product_demand_numbers[mat, uin, uout]
 
-        model.product_demand = pyomo.Constraint(model.product_set, rule=product_demand)
+        model.product_demand = pyomo.Constraint(model.product_set, model.timeperiods, rule=product_demand)
 
         # Blend Tank Balance Equations
-        def pg_balance(model):
-            return model.x['pg_prod', 'pg_tk', 'pg_out'] == sum(model.x[mat, uin, uout] for (mat, uin, uout) in model.pg_set)
+        def pg_balance(model, t):
+            return model.x['pg_prod', 'pg_tk', 'pg_out', t] == sum(model.x[mat, uin, uout, t] for (mat, uin, uout) in model.pg_set)
 
-        def rg_balance(model):
-            return model.x['rg_prod', 'rg_tk', 'rg_out'] == sum(model.x[mat, uin, uout] for (mat, uin, uout) in model.rg_set)
+        def rg_balance(model, t):
+            return model.x['rg_prod', 'rg_tk', 'rg_out', t] == sum(model.x[mat, uin, uout, t] for (mat, uin, uout) in model.rg_set)
 
-        def df_balance(model):
-            return model.x['df_prod', 'df_tk', 'df_out'] == sum(model.x[mat, uin, uout] for (mat, uin, uout) in model.df_set)
+        def df_balance(model, t):
+            return model.x['df_prod', 'df_tk', 'df_out', t] == sum(model.x[mat, uin, uout, t] for (mat, uin, uout) in model.df_set)
 
-        def fo_balance(model):
-            return model.x['fo_prod', 'fo_tk', 'fo_out'] == sum(model.x[mat, uin, uout] for (mat, uin, uout) in model.fo_set)
+        def fo_balance(model, t):
+            return model.x['fo_prod', 'fo_tk', 'fo_out', t] == sum(model.x[mat, uin, uout, t] for (mat, uin, uout) in model.fo_set)
 
         # Blend Tank Balance Constraints
-        model.pg_blend = pyomo.Constraint(rule=pg_balance)
-        model.rg_blend = pyomo.Constraint(rule=rg_balance)
-        model.df_blend = pyomo.Constraint(rule=df_balance)
-        model.fo_blend = pyomo.Constraint(rule=fo_balance)
+        model.pg_blend = pyomo.Constraint(model.timeperiods, rule=pg_balance)
+        model.rg_blend = pyomo.Constraint(model.timeperiods, rule=rg_balance)
+        model.df_blend = pyomo.Constraint(model.timeperiods, rule=df_balance)
+        model.fo_blend = pyomo.Constraint(model.timeperiods, rule=fo_balance)
 
         # Product Quality Equations
-        def pg_octane(model):
-            return sum(model.x[mat, uin, uout] * model.pg_octane_rating[mat, uin, uout] for (mat, uin, uout) in model.pg_set) - 93 * model.x['pg_prod', 'pg_tk', 'pg_out'] >= 0
+        def pg_octane(model, t):
+            return sum(model.x[mat, uin, uout, t] * model.pg_octane_rating[mat, uin, uout] for (mat, uin, uout) in model.pg_set) - 93 * model.x['pg_prod', 'pg_tk', 'pg_out', t] >= 0
 
-        def pg_vpress(model):
-            return sum(model.x[mat, uin, uout] * model.pg_vpress_rating[mat, uin, uout] for (mat, uin, uout) in model.pg_set) - 12.7 * model.x['pg_prod', 'pg_tk', 'pg_out'] <= 0
+        def pg_vpress(model, t):
+            return sum(model.x[mat, uin, uout, t] * model.pg_vpress_rating[mat, uin, uout] for (mat, uin, uout) in model.pg_set) - 12.7 * model.x['pg_prod', 'pg_tk', 'pg_out', t] <= 0
 
-        def rg_octane(model):
-            return sum(model.x[mat, uin, uout] * model.rg_octane_rating[mat, uin, uout] for (mat, uin, uout) in model.rg_set) - 83 * model.x['rg_prod', 'rg_tk', 'rg_out'] >= 0
+        def rg_octane(model, t):
+            return sum(model.x[mat, uin, uout, t] * model.rg_octane_rating[mat, uin, uout] for (mat, uin, uout) in model.rg_set) - 83 * model.x['rg_prod', 'rg_tk', 'rg_out', t] >= 0
 
-        def rg_vpress(model):
-            return sum(model.x[mat, uin, uout] * model.rg_vpress_rating[mat, uin, uout] for (mat, uin, uout) in model.rg_set) - 12.7 * model.x['rg_prod', 'rg_tk', 'rg_out'] <= 0
+        def rg_vpress(model, t):
+            return sum(model.x[mat, uin, uout, t] * model.rg_vpress_rating[mat, uin, uout] for (mat, uin, uout) in model.rg_set) - 12.7 * model.x['rg_prod', 'rg_tk', 'rg_out', t] <= 0
 
-        def df_density(model):
-            return sum(model.x[mat, uin, uout] * model.df_density_spec[mat, uin, uout] for (mat, uin, uout) in model.df_set) - 306 * model.x['df_prod', 'df_tk', 'df_out'] <= 0
+        def df_density(model, t):
+            return sum(model.x[mat, uin, uout, t] * model.df_density_spec[mat, uin, uout] for (mat, uin, uout) in model.df_set) - 306 * model.x['df_prod', 'df_tk', 'df_out', t] <= 0
 
-        def df_sulfur(model):
-            return sum(model.x[mat, uin, uout] * model.df_sulfur_spec[mat, uin, uout] for (mat, uin, uout) in model.df_set) - 0.50 * model.x['df_prod', 'df_tk', 'df_out'] <= 0
+        def df_sulfur(model, t):
+            return sum(model.x[mat, uin, uout, t] * model.df_sulfur_spec[mat, uin, uout] for (mat, uin, uout) in model.df_set) - 0.50 * model.x['df_prod', 'df_tk', 'df_out', t] <= 0
 
-        def fo_density(model):
-            return sum(model.x[mat, uin, uout] * model.fo_density_spec[mat, uin, uout] for (mat, uin, uout) in model.fo_set) - 352 * model.x['fo_prod', 'fo_tk', 'fo_out'] <= 0
+        def fo_density(model, t):
+            return sum(model.x[mat, uin, uout, t] * model.fo_density_spec[mat, uin, uout] for (mat, uin, uout) in model.fo_set) - 352 * model.x['fo_prod', 'fo_tk', 'fo_out', t] <= 0
 
-        def fo_sulfur(model):
-            return sum(model.x[mat, uin, uout] * model.fo_sulfur_spec[mat, uin, uout] for (mat, uin, uout) in model.fo_set) - 3.0 * model.x['fo_prod', 'fo_tk', 'fo_out'] <= 0
+        def fo_sulfur(model, t):
+            return sum(model.x[mat, uin, uout, t] * model.fo_sulfur_spec[mat, uin, uout] for (mat, uin, uout) in model.fo_set) - 3.0 * model.x['fo_prod', 'fo_tk', 'fo_out', t] <= 0
 
         # Product Quality Constraints
-        model.pg_octane_req = pyomo.Constraint(rule=pg_octane)
-        model.pg_vpress_req = pyomo.Constraint(rule=pg_vpress)
-        model.rg_octane_req = pyomo.Constraint(rule=rg_octane)
-        model.rg_vpress_req = pyomo.Constraint(rule=rg_vpress)
-        model.df_density_req = pyomo.Constraint(rule=df_density)
-        model.df_sulfur_req = pyomo.Constraint(rule=df_sulfur)
-        model.fo_density_req = pyomo.Constraint(rule=fo_density)
-        model.fo_sulfur_req = pyomo.Constraint(rule=fo_sulfur)
+        model.pg_octane_req = pyomo.Constraint(model.timeperiods, rule=pg_octane)
+        model.pg_vpress_req = pyomo.Constraint(model.timeperiods, rule=pg_vpress)
+        model.rg_octane_req = pyomo.Constraint(model.timeperiods, rule=rg_octane)
+        model.rg_vpress_req = pyomo.Constraint(model.timeperiods, rule=rg_vpress)
+        model.df_density_req = pyomo.Constraint(model.timeperiods, rule=df_density)
+        model.df_sulfur_req = pyomo.Constraint(model.timeperiods, rule=df_sulfur)
+        model.fo_density_req = pyomo.Constraint(model.timeperiods, rule=fo_density)
+        model.fo_sulfur_req = pyomo.Constraint(model.timeperiods, rule=fo_sulfur)
 
         # Create instance of model
         instance = model.create_instance(data)
@@ -388,7 +387,7 @@ class RefineryOptimizationAbstract:
 
     def print_output(self, opt_model):
         """Prints the flow rates, then the total profit and production of each product and their properties."""
-        # opt_model.display()
+        opt_model.display()
 
 
 def main():
