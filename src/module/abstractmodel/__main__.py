@@ -9,21 +9,36 @@ class RefineryOptimizationAbstract:
     """Class used to create an optimization object, set-up the problem, solve, and output."""
 
     def __init__(self):
-        """Initialization of data sets"""
+        """
+        Initialization of sets and data for the multiperiod problem
+        Note: to add a new buffer tank, the user must modify:
+        A: self.map_to_units
+        B: self.cost_data
+        C: self.splitpoint_dict
+        D: Tank data in init
+        E: Yield equations in self.build_model
+        """
 
         self.timehorizon = 5
         self.timedelta = 1
+
+        # shutdown parameter - 1 for shutdown, 0 elsewhere
+        self.alpha_param = {
+            'ad': 0,
+            'rf': 0,
+            'cc': 0
+        }
 
         # create dictionary to map flow streams to originating and receiving units
         self.map_to_units = {
             'crude': {('crude_source', 'ad')},
             'srg': {('ad', 'srg_sp'), ('srg_sp', 'pg_tk'), ('srg_sp', 'rg_tk')},
-            'srn': {('ad', 'srn_sp'), ('srn_sp', 'rf'), ('srn_sp', 'pg_tk'), ('srn_sp', 'rg_tk'), ('srn_sp', 'df_tk'), ('srn_sp', 'srn_tk'), ('srn_tk', 'rf')},
+            'srn': {('ad', 'srn_sp'), ('srn_sp', 'rf'), ('srn_sp', 'pg_tk'), ('srn_sp', 'rg_tk'), ('srn_sp', 'df_tk'), ('srn_sp', 'srn_tk'), ('srn_tk', 'rf')},  # NEW
             'srds': {('ad', 'srds_sp'), ('srds_sp', 'cc'), ('srds_sp', 'df_tk'), ('srds_sp', 'fo_tk')},
             'srfo': {('ad', 'srfo_sp'), ('srfo_sp', 'cc'), ('srfo_sp', 'df_tk'), ('srfo_sp', 'fo_tk')},
-            'rfg': {('rf', 'rfg_sp'), ('rfg_sp', 'pg_tk'), ('rfg_sp', 'rg_tk'), ('rf', 'rfg_tk'), ('rfg_tk', 'rfg_sp')},
-            'ccg': {('cc', 'ccg_sp'), ('ccg_sp', 'pg_tk'), ('ccg_sp', 'rg_tk')},
-            'fo': {('cc', 'fo_sp'), ('fo_sp', 'df_tk'), ('fo_sp', 'fo_tk')},
+            'rfg': {('rf', 'rfg_sp'), ('rfg_sp', 'pg_tk'), ('rfg_sp', 'rg_tk'), ('rf', 'rfg_tk'), ('rfg_tk', 'rfg_sp')},  # NEW
+            'ccg': {('cc', 'ccg_sp'), ('ccg_sp', 'pg_tk'), ('ccg_sp', 'rg_tk'), ('cc', 'ccg_tk'), ('ccg_tk', 'ccg_sp')},  # NEW
+            'ccfo': {('cc', 'ccfo_sp'), ('ccfo_sp', 'df_tk'), ('ccfo_sp', 'fo_tk'), ('cc', 'ccfo_tk'), ('ccfo_tk', 'ccfo_sp')},  # NEW
             'fg': {('ad', 'fg_sink'), ('rf', 'fg_sink'), ('cc', 'fg_sink')},
             'pg_prod': {('pg_tk', 'pg_out')},
             'rg_prod': {('rg_tk', 'rg_out')},
@@ -37,6 +52,7 @@ class RefineryOptimizationAbstract:
             ('fg', 'ad', 'fg_sink'): 0.01965,
             ('fg', 'rf', 'fg_sink'): 0.01965,
             ('srn', 'srn_sp', 'rf'): -2.5,
+            ('srn', 'srn_tk', 'rf'): -2.5,  # NEW
             ('srds', 'srds_sp', 'cc'): -2.2,
             ('srfo', 'srfo_sp', 'cc'): -2.2,
             ('fg', 'cc', 'fg_sink'): 0.01965,
@@ -44,9 +60,10 @@ class RefineryOptimizationAbstract:
             ('rg_prod', 'rg_tk', 'rg_out'): 43.68,
             ('df_prod', 'df_tk', 'df_out'): 40.32,
             ('fo_prod', 'fo_tk', 'fo_out'): 13.14,
-            ('srn', 'srn_tk', 'rf'): -2.5,  # NEW
-            ('srn', 'srn_sp', 'srn_tk'): -0.5,
-            ('rfg', 'rf', 'rfg_tk'): -0.5
+            ('srn', 'srn_sp', 'srn_tk'): -0.5,  # NEW
+            ('rfg', 'rf', 'rfg_tk'): -0.5,  # NEW
+            ('ccg', 'cc', 'ccg_tk'): -0.5,  # NEW
+            ('ccfo', 'cc', 'ccfo_tk'): -0.5  # NEW
         }
 
         # dictionary of each split origin (key) and the respective split streams (values)
@@ -58,7 +75,9 @@ class RefineryOptimizationAbstract:
             ('rfg', 'rf', 'rfg_sp'): {('rfg', 'rfg_sp', 'pg_tk'), ('rfg', 'rfg_sp', 'rg_tk')},
             ('rfg', 'rfg_tk', 'rfg_sp'): {('rfg', 'rfg_sp', 'pg_tk'), ('rfg', 'rfg_sp', 'rg_tk')},  # NEW
             ('ccg', 'cc', 'ccg_sp'): {('ccg', 'ccg_sp', 'pg_tk'), ('ccg', 'ccg_sp', 'rg_tk')},
-            ('fo', 'cc', 'fo_sp'): {('fo', 'fo_sp', 'df_tk'), ('fo', 'fo_sp', 'fo_tk')}
+            ('ccg', 'ccg_tk', 'ccg_sp'): {('ccg', 'ccg_sp', 'pg_tk'), ('ccg', 'ccg_sp', 'rg_tk')},  # NEW
+            ('ccfo', 'cc', 'ccfo_sp'): {('ccfo', 'ccfo_sp', 'df_tk'), ('ccfo', 'ccfo_sp', 'fo_tk')},
+            ('ccfo', 'ccfo_tk', 'ccfo_sp'): {('ccfo', 'ccfo_sp', 'df_tk'), ('ccfo', 'ccfo_sp', 'fo_tk')}  # NEW
         }
 
         # assign the timeperiods to the splitpoints
@@ -95,14 +114,14 @@ class RefineryOptimizationAbstract:
         self.cc_srds_yield_coef = {
             ('fg', 'cc', 'fg_sink'): 336.9,
             ('ccg', 'cc', 'ccg_sp'): 0.619,
-            ('fo', 'cc', 'fo_sp'): 0.189
+            ('ccfo', 'cc', 'ccfo_sp'): 0.189
         }
 
         # Catalytic Cracker for SRFO Feed
         self.cc_srfo_yield_coef = {
             ('fg', 'cc', 'fg_sink'): 386.4,
             ('ccg', 'cc', 'ccg_sp'): 0.688,
-            ('fo', 'cc', 'fo_sp'): 0.2197
+            ('ccfo', 'cc', 'ccfo_sp'): 0.2197
         }
 
         # Feed Properties for Blending
@@ -137,12 +156,12 @@ class RefineryOptimizationAbstract:
         # Densities
         self.df_density_data = {
             ('srn', 'srn_sp', 'df_tk'): 272,
-            ('fo', 'fo_sp', 'df_tk'): 294.4,
+            ('ccfo', 'ccfo_sp', 'df_tk'): 294.4,
             ('srds', 'srds_sp', 'df_tk'): 292,
             ('srfo', 'srfo_sp', 'df_tk'): 295
         }
         self.fo_density_data = {
-            ('fo', 'fo_sp', 'fo_tk'): 294.4,
+            ('ccfo', 'ccfo_sp', 'fo_tk'): 294.4,
             ('srds', 'srds_sp', 'fo_tk'): 292,
             ('srfo', 'srfo_sp', 'fo_tk'): 295
         }
@@ -150,12 +169,12 @@ class RefineryOptimizationAbstract:
         # Sulfur Concentrations
         self.df_sulfur_data = {
             ('srn', 'srn_sp', 'df_tk'): 0.283,
-            ('fo', 'fo_sp', 'df_tk'): 0.353,
+            ('ccfo', 'ccfo_sp', 'df_tk'): 0.353,
             ('srds', 'srds_sp', 'df_tk'): 0.526,
             ('srfo', 'srfo_sp', 'df_tk'): 0.980
         }
         self.fo_sulfur_data = {
-            ('fo', 'fo_sp', 'fo_tk'): 0.353,
+            ('ccfo', 'ccfo_sp', 'fo_tk'): 0.353,
             ('srds', 'srds_sp', 'fo_tk'): 0.526,
             ('srfo', 'srfo_sp', 'fo_tk'): 0.980
         }
@@ -163,29 +182,41 @@ class RefineryOptimizationAbstract:
         # Tank data
         self.tank_height = {
             'srn_tk': 10,
-            'rfg_tk': 10
+            'rfg_tk': 10,
+            'ccg_tk': 10,
+            'ccfo_tk': 10
         }
         self.tank_radius = {
             'srn_tk': 5,
-            'rfg_tk': 5
+            'rfg_tk': 5,
+            'ccg_tk': 5,
+            'ccfo_tk': 5
         }
         self.tank_area = {
             'srn_tk': (2*np.pi*self.tank_radius['srn_tk'] * self.tank_height['srn_tk'] + np.pi*self.tank_radius['srn_tk']**2),  # m2
-            'rfg_tk': (2*np.pi*self.tank_radius['rfg_tk'] * self.tank_height['rfg_tk'] + np.pi*self.tank_radius['rfg_tk']**2)  # m2
+            'rfg_tk': (2*np.pi*self.tank_radius['rfg_tk'] * self.tank_height['rfg_tk'] + np.pi*self.tank_radius['rfg_tk']**2),  # m2
+            'ccg_tk': (2*np.pi*self.tank_radius['ccg_tk'] * self.tank_height['ccg_tk'] + np.pi*self.tank_radius['ccg_tk']**2),  # m2
+            'ccfo_tk': (2*np.pi*self.tank_radius['ccfo_tk'] * self.tank_height['ccfo_tk'] + np.pi*self.tank_radius['ccfo_tk']**2)  # m2
         }
         self.bbl_to_m3 = 0.158  # 0.158m3/bbl
-        self.tank_list = ['srn_tk', 'rfg_tk']
+        self.tank_list = ['srn_tk', 'rfg_tk', 'ccg_tk', 'ccfo_tk']
         self.tank_in_dict = {
             'srn_tk': [('srn', 'srn_sp', 'srn_tk')],
-            'rfg_tk': [('rfg', 'rf', 'rfg_tk')]
+            'rfg_tk': [('rfg', 'rf', 'rfg_tk')],
+            'ccg_tk': [('ccg', 'cc', 'ccg_tk')],
+            'ccfo_tk': [('ccfo', 'cc', 'ccfo_tk')]
         }
         self.tank_out_dict = {
             'srn_tk': [('srn', 'srn_tk', 'rf')],
-            'rfg_tk': [('rfg', 'rfg_tk', 'rfg_sp')]
+            'rfg_tk': [('rfg', 'rfg_tk', 'rfg_sp')],
+            'ccg_tk': [('ccg', 'ccg_tk', 'ccg_sp')],
+            'ccfo_tk': [('ccfo', 'ccfo_tk', 'ccfo_sp')]
         }
         self.tank_holding_cost_data = {
             'srn_tk': 1.5,
-            'rfg_tk': 1.5
+            'rfg_tk': 1.5,
+            'ccg_tk': 1.5,
+            'ccfo_tk': 1.5
         }
 
     def build_model(self):
@@ -236,9 +267,12 @@ class RefineryOptimizationAbstract:
         # data to fill the materials and unitpairs sets
         # unitpairs is a set of tuples for each specified combination (e.g. {('ad', 'pg'), ('ad', 'cc'), ...})
         data = {None: {
-            'materials': {None: ['crude', 'srg', 'srn', 'srds', 'srfo', 'rfg', 'ccg', 'fo', 'fg', 'pg_prod', 'rg_prod', 'df_prod', 'fo_prod']},
+            'materials': {None: ['crude', 'srg', 'srn', 'srds', 'srfo', 'rfg', 'ccg', 'ccfo', 'fg', 'pg_prod', 'rg_prod', 'df_prod', 'fo_prod']},
             'unitpairs': {None: set(itertools.chain.from_iterable(self.map_to_units.values()))}
         }}
+
+        # Parameter for shutdown binary alpha
+        model.alpha = pyomo.Param(self.alpha_param.keys(), initialize=self.alpha_param)
 
         # Parameter for cost streams
         model.costs = pyomo.Param(model.cost_set, initialize=self.cost_data)
@@ -247,7 +281,7 @@ class RefineryOptimizationAbstract:
         # Sets
         model.ad_outflows = pyomo.Set(initialize=[('fg', 'ad', 'fg_sink'), ('srg', 'ad', 'srg_sp'), ('srn', 'ad', 'srn_sp'), ('srds', 'ad', 'srds_sp'), ('srfo', 'ad', 'srfo_sp')])
         model.rf_outflows = pyomo.Set(initialize=[('fg', 'rf', 'fg_sink'), ('rfg', 'rf', 'rfg_sp')])
-        model.cc_outflows = pyomo.Set(initialize=[('fg', 'cc', 'fg_sink'), ('ccg', 'cc', 'ccg_sp'), ('fo', 'cc', 'fo_sp')])
+        model.cc_outflows = pyomo.Set(initialize=[('fg', 'cc', 'fg_sink'), ('ccg', 'cc', 'ccg_sp'), ('ccfo', 'cc', 'ccfo_sp')])
 
         # Parameters
         model.ad_yield_coef = pyomo.Param(model.ad_outflows, initialize=self.ad_yield_coef)
@@ -262,8 +296,8 @@ class RefineryOptimizationAbstract:
         # Blend Tank Balance Sets
         model.pg_set = pyomo.Set(initialize=[('srg', 'srg_sp', 'pg_tk'), ('rfg', 'rfg_sp', 'pg_tk'), ('srn', 'srn_sp', 'pg_tk'), ('ccg', 'ccg_sp', 'pg_tk')])
         model.rg_set = pyomo.Set(initialize=[('srg', 'srg_sp', 'rg_tk'), ('rfg', 'rfg_sp', 'rg_tk'), ('srn', 'srn_sp', 'rg_tk'), ('ccg', 'ccg_sp', 'rg_tk')])
-        model.df_set = pyomo.Set(initialize=[('srn', 'srn_sp', 'df_tk'), ('fo', 'fo_sp', 'df_tk'), ('srds', 'srds_sp', 'df_tk'), ('srfo', 'srfo_sp', 'df_tk')])
-        model.fo_set = pyomo.Set(initialize=[('fo', 'fo_sp', 'fo_tk'), ('srds', 'srds_sp', 'fo_tk'), ('srfo', 'srfo_sp', 'fo_tk')])
+        model.df_set = pyomo.Set(initialize=[('srn', 'srn_sp', 'df_tk'), ('ccfo', 'ccfo_sp', 'df_tk'), ('srds', 'srds_sp', 'df_tk'), ('srfo', 'srfo_sp', 'df_tk')])
+        model.fo_set = pyomo.Set(initialize=[('ccfo', 'ccfo_sp', 'fo_tk'), ('srds', 'srds_sp', 'fo_tk'), ('srfo', 'srfo_sp', 'fo_tk')])
 
         # Quality Constraint Parameters
         model.pg_octane_rating = pyomo.Param(model.pg_set, initialize=self.pg_octane_data)
@@ -316,13 +350,13 @@ class RefineryOptimizationAbstract:
             return model.x['crude', 'crude_source', 'ad', t] <= 110000
 
         def ad_capacity(model, t):
-            return model.x['crude', 'crude_source', 'ad', t] <= 100000
+            return model.x['crude', 'crude_source', 'ad', t] * (1 - model.alpha['ad']) <= 100000
 
         def rf_capacity(model, t):
-            return model.x['srn', 'srn_sp', 'rf', t] + model.x['srn', 'srn_tk', 'rf', t] <= 25000
+            return (model.x['srn', 'srn_sp', 'rf', t] + model.x['srn', 'srn_tk', 'rf', t]) * (1 - model.alpha['rf']) <= 25000
 
         def cc_capacity(model, t):
-            return model.x['srds', 'srds_sp', 'cc', t] + model.x['srfo', 'srfo_sp', 'cc', t] <= 30000
+            return (model.x['srds', 'srds_sp', 'cc', t] + model.x['srfo', 'srfo_sp', 'cc', t]) * (1 - model.alpha['cc']) <= 30000
 
         # Capacity Constraints
         model.crudecap = pyomo.Constraint(model.timeperiods, rule=ad_crude_limit)
@@ -341,7 +375,12 @@ class RefineryOptimizationAbstract:
                 return model.x[mat, uout, uin, t] == model.x['srn', 'srn_sp', 'rf', t] * model.rf_yield_coef[mat, uout, uin] + model.x['srn', 'srn_tk', 'rf', t] * model.rf_yield_coef[mat, uout, uin]
 
         def cc_yield(model, mat, uout, uin, t):
-            return model.x[mat, uout, uin, t] == model.x['srds', 'srds_sp', 'cc', t] * model.cc_srds_yield_coef[mat, uout, uin] + model.x['srfo', 'srfo_sp', 'cc', t] * model.cc_srfo_yield_coef[mat, uout, uin]
+            if mat == 'ccg':
+                return model.x[mat, uout, uin, t] + model.x[mat, 'cc', 'ccg_tk', t] == model.x['srds', 'srds_sp', 'cc', t] * model.cc_srds_yield_coef[mat, uout, uin] + model.x['srfo', 'srfo_sp', 'cc', t] * model.cc_srfo_yield_coef[mat, uout, uin]
+            elif mat == 'ccfo':
+                return model.x[mat, uout, uin, t] + model.x[mat, 'cc', 'ccfo_tk', t] == model.x['srds', 'srds_sp', 'cc', t] * model.cc_srds_yield_coef[mat, uout, uin] + model.x['srfo', 'srfo_sp', 'cc', t] * model.cc_srfo_yield_coef[mat, uout, uin]
+            else:
+                return model.x[mat, uout, uin, t] == model.x['srds', 'srds_sp', 'cc', t] * model.cc_srds_yield_coef[mat, uout, uin] + model.x['srfo', 'srfo_sp', 'cc', t] * model.cc_srfo_yield_coef[mat, uout, uin]
 
         # Yield Constraints
         model.ad_output = pyomo.Constraint(model.ad_outflows, model.timeperiods, rule=ad_yield)
@@ -450,11 +489,11 @@ class RefineryOptimizationAbstract:
     def print_output(self, opt_model):
         """Prints the flow rates, then the total profit and production of each product and their properties."""
         opt_model.display()
-        #
+        print('Objective Excluding Tank Holding Costs:', sum(pyomo.value(opt_model.x[c, t] * opt_model.costs[c]) for c in opt_model.costs for t in opt_model.timeperiods))
+        print('Tank Holding Costs:', sum(opt_model.tank_holding_cost[tank] * pyomo.value(opt_model.m[tank, t]) for tank in opt_model.tank_set for t in opt_model.timeperiods))
+
         for t in opt_model.timeperiods:
             print('~~~~~~~~~~~~~ Timeperiod :', t, ' ~~~~~~~~~~~~~')
-            print('Objective Excluding Tank Holding Costs:', sum(pyomo.value(opt_model.x[c, t] * opt_model.costs[c]) for c in opt_model.costs for t in opt_model.timeperiods))
-            print('Tank Holding Costs:', sum(opt_model.tank_holding_cost[tank] * pyomo.value(opt_model.m[tank, t]) for tank in opt_model.tank_set for t in opt_model.timeperiods))
             print('PG Octane:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.pg_octane_rating[mat, uout, uin]) for (mat, uout, uin) in opt_model.pg_set) / pyomo.value(opt_model.x['pg_prod', 'pg_tk', 'pg_out', t]))
             print('PG Vapour Pressure:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.pg_vpress_rating[mat, uout, uin]) for (mat, uout, uin) in opt_model.pg_set) / pyomo.value(opt_model.x['pg_prod', 'pg_tk', 'pg_out', t]))
             print('RG Octane:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.rg_octane_rating[mat, uout, uin]) for (mat, uout, uin) in opt_model.rg_set) / pyomo.value(opt_model.x['rg_prod', 'rg_tk', 'rg_out', t]))
