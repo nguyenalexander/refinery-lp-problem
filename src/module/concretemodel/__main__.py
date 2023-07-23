@@ -127,6 +127,7 @@ class RefineryOptimizationConcrete:
         # model.x[1].value = 100000
         # model.x[1].fixed = True
         # Alternatively: model.x[1].fix(100000) works
+        model.x[9].fix(0)
 
         # crude capacity constraint
         model.crudecap = pyomo.Constraint(expr = model.x[1] <= 110000)
