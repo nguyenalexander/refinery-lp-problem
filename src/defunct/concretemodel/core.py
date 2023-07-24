@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from src.module.concretemodel import helpers
+from src.defunct.concretemodel import helpers
 
 
 def get_hmm():
