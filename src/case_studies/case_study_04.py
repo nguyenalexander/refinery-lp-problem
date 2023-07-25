@@ -1,4 +1,6 @@
 import pyomo.environ as pyomo
+from src.refinery_problem import helpers
+import pandas as pd
 
 
 def execute_optimization(opt_model):
@@ -30,25 +32,29 @@ def execute_optimization(opt_model):
         10: [('rf', 3), ('cc', 4)]
     }
 
+    output_results_df = pd.DataFrame()
+    # Run all shutdown scenarios and store results in a dataframe column
     for case, alpha_list in shutdown_conditions.items():
+        # SET Alphas for shutdown scenario
         for sd_pair in alpha_list:
             opt_model.alpha[sd_pair[0], sd_pair[1]] = 1
 
         # Display instance information
-        opt_model.pprint()
+        # opt_model.pprint()
 
+        # Solve optimization problem
         solver = pyomo.SolverFactory('glpk')
-        solver.solve(opt_model, tee=True)
+        solver_information = solver.solve(opt_model, tee=True)
 
+        # Display model results
         # opt_model.display()
 
-        # Display Alpha for verification purposes
-        # for t in range(1, opt_model.timeperiods.ordered_data()[-1] + 1, opt_model.timeperiods.ordered_data()[-1] - opt_model.timeperiods.ordered_data()[-2]):
-        #     print('rf_alpha, t=', t, ': ', pyomo.value(opt_model.alpha['rf', t]))
-        #     print('cc_alpha, t=', t, ': ', pyomo.value(opt_model.alpha['cc', t]))
+        # Format results into a sorted pandas series and then append to the results dataframe
+        results_series = helpers.store_results_pd(opt_model, solver_information)
+        output_results_df[case] = results_series
 
         # RESET Alpha
         for sd_pair in alpha_list:
             opt_model.alpha[sd_pair[0], sd_pair[1]] = 0
 
-    return opt_model
+    return opt_model, output_results_df

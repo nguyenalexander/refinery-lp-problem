@@ -1,4 +1,5 @@
 import pyomo.environ as pyomo
+import pandas as pd
 
 
 def execute_optimization(opt_model):
@@ -34,8 +35,38 @@ def print_output(opt_model):
         print('FO Sulfur:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.fo_sulfur_spec[mat, uout, uin]) for (mat, uout, uin) in opt_model.fo_set) / pyomo.value(opt_model.x['fo_prod', 'fo_tk', 'fo_out', t]))
 
 
-def store_results_pd(opt_model, df):
-    for v in opt_model.component_data_objects(pyomo.Var, active=True):
-        print(v, pyomo.value(v))
+def store_results_pd(opt_model, solver_information):
+    store_index = []
+    store_values = []
 
-    return df
+    # Store flow rates and tank volumes
+    for v in opt_model.component_data_objects(pyomo.Var):
+        store_index.append(v.name)
+        store_values.append(pyomo.value(v))
+
+    # Store Alphas
+    for p in opt_model.component_data_objects(pyomo.Param):
+        if hasattr(p, 'name'):
+            if 'alpha' in p.name:
+                store_index.append(p.name)
+                store_values.append(pyomo.value(p))
+
+    # Sort by alphabetical
+    paired_list = zip(store_index, store_values)
+    sorted_list = sorted(paired_list)
+    tuples_list = zip(*sorted_list)
+    store_index, store_values = [list(i) for i in tuples_list]
+
+    # Add objective value to top
+    for obj in opt_model.component_data_objects(pyomo.Objective):
+        store_index.insert(0, 'Objective')
+        store_values.insert(0, pyomo.value(obj))
+
+    store_index.insert(0, 'Termination Condition')
+    store_values.insert(0, solver_information.solver.termination_condition)
+    store_index.insert(0, 'Solver Status')
+    store_values.insert(0, solver_information.solver.status)
+
+
+    output_df = pd.Series(data=store_values, index=store_index)
+    return output_df
