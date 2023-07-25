@@ -19,6 +19,7 @@ def execute_optimization(opt_model):
         # CCFO tank off
         opt_model.x['ccfo', 'cc', 'ccfo_tk', t].fix(0)
 
+    # Shutdown scenarios
     shutdown_conditions = {
         1: [('cc', 3)],
         2: [('cc', 2), ('cc', 3)],

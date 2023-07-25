@@ -1,9 +1,14 @@
 import pyomo.environ as pyomo
 import pandas as pd
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def execute_optimization(opt_model):
-    """Received the instantiated Pyomo Model then solves the optimization problem. Returns the solved model object."""
+    """
+    A helper function to receive the instantiated Pyomo Model then solve the optimization problem. Returns the solved model object.
+    """
     # e.g. Shutting down reformer for period 4
     # opt_model.x['srn', 'srn_tk', 'rf', 4].fix(0)
     # opt_model.x['srn', 'srn_sp', 'rf', 4].fix(0)
@@ -18,7 +23,9 @@ def execute_optimization(opt_model):
 
 
 def print_output(opt_model):
-    """Prints the flow rates, then the total profit and production of each product and their properties."""
+    """
+    A helper function to print the flow rates, then the total profit and production of each product and their properties..
+    """
     opt_model.display()
     print('Objective Excluding Tank Holding Costs:', sum(pyomo.value(opt_model.x[c, t] * opt_model.costs[c]) for c in opt_model.costs for t in opt_model.timeperiods))
     print('Tank Holding Costs:', sum(opt_model.tank_holding_cost[tank] * pyomo.value(opt_model.m[tank, t]) for tank in opt_model.tank_set for t in opt_model.timeperiods))
@@ -36,6 +43,9 @@ def print_output(opt_model):
 
 
 def store_results_pd(opt_model, solver_information):
+    """
+    A helper function to store the optimization results in a dataframe.
+    """
     store_index = []
     store_values = []
 
@@ -66,7 +76,6 @@ def store_results_pd(opt_model, solver_information):
     store_values.insert(0, solver_information.solver.termination_condition)
     store_index.insert(0, 'Solver Status')
     store_values.insert(0, solver_information.solver.status)
-
 
     output_df = pd.Series(data=store_values, index=store_index)
     return output_df

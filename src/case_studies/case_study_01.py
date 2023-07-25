@@ -1,7 +1,7 @@
 import pyomo.environ as pyomo
 from src.refinery_problem import helpers
 import pandas as pd
-from pyomo.opt import SolverStatus, TerminationCondition
+
 
 def execute_optimization(opt_model):
     """Case study #1: only RFG buffer tank after the reformer."""
@@ -53,7 +53,6 @@ def execute_optimization(opt_model):
         # Format results into a sorted pandas series and then append to the results dataframe
         results_series = helpers.store_results_pd(opt_model, solver_information)
         output_results_df[case] = results_series
-
 
         # RESET Alpha
         for sd_pair in alpha_list:
