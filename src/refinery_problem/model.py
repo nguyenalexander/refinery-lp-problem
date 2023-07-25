@@ -1,11 +1,9 @@
 import pyomo.environ as pyomo
 import numpy as np
-import pandas as pd
 import itertools
-from collections import defaultdict
 
 
-class RefineryOptimizationAbstract:
+class RefineryModel:
     """Class used to create an optimization object, set-up the problem, solve, and output."""
 
     def __init__(self):
@@ -23,11 +21,17 @@ class RefineryOptimizationAbstract:
         self.timedelta = 1
 
         # shutdown parameter - 1 for shutdown, 0 elsewhere
-        self.alpha_param = {
-            'ad': 0,
-            'rf': 0,
-            'cc': 0
+        alpha_default = {
+            ('ad',): 0,
+            ('rf',): 0,
+            ('cc',): 0
         }
+
+        # assign the timeperiods to alpha
+        self.alpha_param = {}
+        for t in range(1, self.timehorizon+1, 1):
+            for i in alpha_default:
+                self.alpha_param[(i + (t,))] = 0
 
         # create dictionary to map flow streams to originating and receiving units
         self.map_to_units = {
@@ -272,7 +276,7 @@ class RefineryOptimizationAbstract:
         }}
 
         # Parameter for shutdown binary alpha
-        model.alpha = pyomo.Param(self.alpha_param.keys(), initialize=self.alpha_param)
+        model.alpha = pyomo.Param(self.alpha_param.keys(), initialize=self.alpha_param, mutable=True)
 
         # Parameter for cost streams
         model.costs = pyomo.Param(model.cost_set, initialize=self.cost_data)
@@ -350,13 +354,13 @@ class RefineryOptimizationAbstract:
             return model.x['crude', 'crude_source', 'ad', t] <= 110000
 
         def ad_capacity(model, t):
-            return model.x['crude', 'crude_source', 'ad', t] * (1 - model.alpha['ad']) <= 100000
+            return model.x['crude', 'crude_source', 'ad', t]  <= 100000 * (1 - model.alpha['ad', t])
 
         def rf_capacity(model, t):
-            return (model.x['srn', 'srn_sp', 'rf', t] + model.x['srn', 'srn_tk', 'rf', t]) * (1 - model.alpha['rf']) <= 25000
+            return (model.x['srn', 'srn_sp', 'rf', t] + model.x['srn', 'srn_tk', 'rf', t]) <= 25000 * (1 - model.alpha['rf', t])
 
         def cc_capacity(model, t):
-            return (model.x['srds', 'srds_sp', 'cc', t] + model.x['srfo', 'srfo_sp', 'cc', t]) * (1 - model.alpha['cc']) <= 30000
+            return (model.x['srds', 'srds_sp', 'cc', t] + model.x['srfo', 'srfo_sp', 'cc', t]) <= 30000 * (1 - model.alpha['cc', t])
 
         # Capacity Constraints
         model.crudecap = pyomo.Constraint(model.timeperiods, rule=ad_crude_limit)
@@ -462,58 +466,7 @@ class RefineryOptimizationAbstract:
             return model.m[tank, t] * self.bbl_to_m3 / self.tank_area[tank] <= self.tank_height[tank]
         model.tank_height_limit = pyomo.Constraint(model.tank_set, model.timeperiods, rule=tank_height)
 
-
         # Create instance of model
         instance = model.create_instance(data)
 
-        # Fix if required
-        # instance.x['crude', 'crude_source', 'ad'].fix(100000)
-
-        # Shutting down reformer for period 4
-        # instance.x['srn', 'srn_tk', 'rf', 4].fix(0)
-        # instance.x['srn', 'srn_sp', 'rf', 4].fix(0)
-
-        # Display instance information
-        instance.pprint()
-
         return instance
-
-    def execute_optimization(self):
-        """Builds the Pyomo Model then solves the optimization problem. Returns the solved model object."""
-        opt_model = self.build_model()
-        solver = pyomo.SolverFactory('glpk')
-        solver.solve(opt_model, tee=True)
-
-        return opt_model
-
-    def print_output(self, opt_model):
-        """Prints the flow rates, then the total profit and production of each product and their properties."""
-        opt_model.display()
-        print('Objective Excluding Tank Holding Costs:', sum(pyomo.value(opt_model.x[c, t] * opt_model.costs[c]) for c in opt_model.costs for t in opt_model.timeperiods))
-        print('Tank Holding Costs:', sum(opt_model.tank_holding_cost[tank] * pyomo.value(opt_model.m[tank, t]) for tank in opt_model.tank_set for t in opt_model.timeperiods))
-
-        for t in opt_model.timeperiods:
-            print('~~~~~~~~~~~~~ Timeperiod :', t, ' ~~~~~~~~~~~~~')
-            print('PG Octane:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.pg_octane_rating[mat, uout, uin]) for (mat, uout, uin) in opt_model.pg_set) / pyomo.value(opt_model.x['pg_prod', 'pg_tk', 'pg_out', t]))
-            print('PG Vapour Pressure:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.pg_vpress_rating[mat, uout, uin]) for (mat, uout, uin) in opt_model.pg_set) / pyomo.value(opt_model.x['pg_prod', 'pg_tk', 'pg_out', t]))
-            print('RG Octane:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.rg_octane_rating[mat, uout, uin]) for (mat, uout, uin) in opt_model.rg_set) / pyomo.value(opt_model.x['rg_prod', 'rg_tk', 'rg_out', t]))
-            print('RG Vapour Pressure:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.rg_vpress_rating[mat, uout, uin]) for (mat, uout, uin) in opt_model.rg_set) / pyomo.value(opt_model.x['rg_prod', 'rg_tk', 'rg_out', t]))
-            print('DF Density:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.df_density_spec[mat, uout, uin]) for (mat, uout, uin) in opt_model.df_set) / pyomo.value(opt_model.x['df_prod', 'df_tk', 'df_out', t]))
-            print('DF Sulfur:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.df_sulfur_spec[mat, uout, uin]) for (mat, uout, uin) in opt_model.df_set) / pyomo.value(opt_model.x['df_prod', 'df_tk', 'df_out', t]))
-            print('FO Density:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.fo_density_spec[mat, uout, uin]) for (mat, uout, uin) in opt_model.fo_set) / pyomo.value(opt_model.x['fo_prod', 'fo_tk', 'fo_out', t]))
-            print('FO Sulfur:', sum(pyomo.value(opt_model.x[mat, uout, uin, t]) * pyomo.value(opt_model.fo_sulfur_spec[mat, uout, uin]) for (mat, uout, uin) in opt_model.fo_set) / pyomo.value(opt_model.x['fo_prod', 'fo_tk', 'fo_out', t]))
-
-
-def main():
-    # initialize refinery class
-    refinery_problem = RefineryOptimizationAbstract()
-
-    # solve optimization problem
-    optimization_result = refinery_problem.execute_optimization()
-
-    # print results using results
-    refinery_problem.print_output(optimization_result)
-
-
-if __name__ == "__main__":
-    main()
