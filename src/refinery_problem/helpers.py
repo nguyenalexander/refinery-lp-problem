@@ -79,3 +79,35 @@ def store_results_pd(opt_model, solver_information):
 
     output_df = pd.Series(data=store_values, index=store_index)
     return output_df
+
+
+def plot_charts(results_df):
+    fig = plt.figure(figsize=(16, 12))
+    gs = fig.add_gridspec(10, 4, hspace=0)
+    axs = gs.subplots(sharex=True, sharey=True)
+    for scenario_idx in range(0, results_df.shape[1], 1):
+        scenario_col_name = results_df.columns[scenario_idx]
+        create_chart(axs[scenario_idx, 0], results_df, 'rfg_tk', scenario_col_name, {'marker': 'o'})
+        create_chart(axs[scenario_idx, 1], results_df, 'ccfo_tk', scenario_col_name, {'marker': 'o'})
+        create_chart(axs[scenario_idx, 2], results_df, 'ccg_tk', scenario_col_name, {'marker': 'o'})
+        create_chart(axs[scenario_idx, 3], results_df, 'srn_tk', scenario_col_name, {'marker': 'o'})
+
+    for ax in axs.flat:
+        ax.label_outer()
+
+    # fig.tight_layout()
+    fig.show()
+
+
+def create_chart(ax, results_df, tank, scenario, param_dict):
+    """
+    A helper function to make the results graph.
+    """
+
+    y = []
+    for t in range(1, 6, 1):
+        tank_str = 'm[' + tank + ',' + str(t) + ']'
+        y.append(results_df.loc[tank_str, scenario])
+
+    plots_out = ax.plot(range(1, 6, 1), y, **param_dict)
+    return plots_out
