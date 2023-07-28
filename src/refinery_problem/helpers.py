@@ -52,7 +52,10 @@ def store_results_pd(opt_model, solver_information):
     # Store flow rates and tank volumes
     for v in opt_model.component_data_objects(pyomo.Var):
         store_index.append(v.name)
-        store_values.append(pyomo.value(v))
+        if solver_information.solver.termination_condition == 'optimal':
+            store_values.append(pyomo.value(v))
+        else:
+            store_values.append(0)
 
     # Store Alphas
     for p in opt_model.component_data_objects(pyomo.Param):
@@ -67,35 +70,66 @@ def store_results_pd(opt_model, solver_information):
     tuples_list = zip(*sorted_list)
     store_index, store_values = [list(i) for i in tuples_list]
 
-    # Add objective value to top
-    for obj in opt_model.component_data_objects(pyomo.Objective):
+    # Add objective value to top and termination conditions
+    if solver_information.solver.termination_condition == 'optimal':
+        for obj in opt_model.component_data_objects(pyomo.Objective):
+            store_index.insert(0, 'Objective')
+            store_values.insert(0, pyomo.value(obj))
+        store_index.insert(0, 'Termination Condition')
+        store_values.insert(0, solver_information.solver.termination_condition)
+        store_index.insert(0, 'Solver Status')
+        store_values.insert(0, solver_information.solver.status)
+    else:
         store_index.insert(0, 'Objective')
-        store_values.insert(0, pyomo.value(obj))
-
-    store_index.insert(0, 'Termination Condition')
-    store_values.insert(0, solver_information.solver.termination_condition)
-    store_index.insert(0, 'Solver Status')
-    store_values.insert(0, solver_information.solver.status)
+        store_values.insert(0, 0)
+        store_index.insert(0, 'Termination Condition')
+        store_values.insert(0, 'infeasible')
+        store_index.insert(0, 'Solver Status')
+        store_values.insert(0, 'failed')
 
     output_df = pd.Series(data=store_values, index=store_index)
     return output_df
 
 
-def plot_charts(results_df):
-    fig = plt.figure(figsize=(16, 12))
-    gs = fig.add_gridspec(10, 4, hspace=0)
+def plot_charts(results_df, case_number):
+    # create figure and subplots
+    fig = plt.figure(figsize=(10, 12), layout='constrained')
+    gs = fig.add_gridspec(10, 4, hspace=0.1, wspace=0.05)
     axs = gs.subplots(sharex=True, sharey=True)
+
+    # for each scenario, create the chart for each storage tank
     for scenario_idx in range(0, results_df.shape[1], 1):
         scenario_col_name = results_df.columns[scenario_idx]
+
+        # helper function create_chart
         create_chart(axs[scenario_idx, 0], results_df, 'rfg_tk', scenario_col_name, {'marker': 'o'})
         create_chart(axs[scenario_idx, 1], results_df, 'ccfo_tk', scenario_col_name, {'marker': 'o'})
         create_chart(axs[scenario_idx, 2], results_df, 'ccg_tk', scenario_col_name, {'marker': 'o'})
         create_chart(axs[scenario_idx, 3], results_df, 'srn_tk', scenario_col_name, {'marker': 'o'})
 
+    # give each column and row a label/title
+    cols = ['{} Tank'.format(col) for col in ['RFG', 'CCFO', 'CCG', 'SRN']]
+    rows = ['Scenario {0}\n({1})'.format(row, results_df.loc['Termination Condition', row]) for row in range(1, results_df.shape[1]+1, 1)]
+
+    # column titles
+    for ax, col in zip(axs[0], cols):
+        ax.set_title(col)
+
+    # row labels
+    for ax, row in zip(axs[:, 0], rows):
+        ax.set_ylabel(row, rotation=0, size='medium', loc='center', labelpad=40)
+
+    # set axis limits and ticks and bottom x labels
+    plt.setp(axs, ylim=[0, 18000], yticks=[0, 5000,  10000, 15000], xlim=[1, 5], xticks=[1, 2, 3, 4, 5], xlabel='Period (d)')
+
+    # only show the outer labels
     for ax in axs.flat:
         ax.label_outer()
 
-    # fig.tight_layout()
+    # plot title and size
+    fig.suptitle('Tank Inventories (m3) for Case Study {}'.format(case_number))
+    fig.get_layout_engine().set(rect=(0, 0, 1, 1))
+
     fig.show()
 
 

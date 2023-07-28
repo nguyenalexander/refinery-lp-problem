@@ -14,7 +14,7 @@ def main():
     # initialize refinery model and instantiate the models
     refinery_object = model.RefineryModel()
     refinery_problem_cs_01 = refinery_object.build_model()
-    # refinery_problem_cs_02 = refinery_object.build_model()
+    refinery_problem_cs_02 = refinery_object.build_model()
     # refinery_problem_cs_03 = refinery_object.build_model()
     # refinery_problem_cs_04 = refinery_object.build_model()
     # refinery_problem_cs_05 = refinery_object.build_model()
@@ -24,13 +24,13 @@ def main():
     # case study 1
     optimization_cs_01, cs_01_results_df = case_study_01.execute_optimization(refinery_problem_cs_01)
     cs_01_results_df.to_csv('./results/case_study_01.csv', index=True, header=True)
-    helpers.plot_charts(cs_01_results_df)
+    helpers.plot_charts(cs_01_results_df, 1)
 
+    # case study 2
+    optimization_cs_02, cs_02_results_df = case_study_02.execute_optimization(refinery_problem_cs_02)
+    cs_02_results_df.to_csv('./results/case_study_02.csv', index=True, header=True)
+    helpers.plot_charts(cs_02_results_df, 2)
 
-    # # case study 2
-    # optimization_cs_02, cs_02_results_df = case_study_02.execute_optimization(refinery_problem_cs_02)
-    # cs_02_results_df.to_csv('./results/case_study_02.csv', index=True, header=True)
-    #
     # # case study 3
     # optimization_cs_03, cs_03_results_df = case_study_03.execute_optimization(refinery_problem_cs_03)
     # cs_03_results_df.to_csv('./results/case_study_03.csv', index=True, header=True)
