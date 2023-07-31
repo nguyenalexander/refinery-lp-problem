@@ -4,11 +4,11 @@ import pandas as pd
 
 
 def execute_optimization(opt_model):
-    """Case study #7: CCG and RFG buffer tanks."""
+    """Case study #8: all buffer tanks active."""
 
-    for t in range(1, opt_model.timeperiods.ordered_data()[-1] + 1, opt_model.timeperiods.ordered_data()[-1] - opt_model.timeperiods.ordered_data()[-2]):
+    # for t in range(1, opt_model.timeperiods.ordered_data()[-1] + 1, opt_model.timeperiods.ordered_data()[-1] - opt_model.timeperiods.ordered_data()[-2]):
         # SRN tank off
-        opt_model.x['srn', 'srn_sp', 'srn_tk', t].fix(0)
+        # opt_model.x['srn', 'srn_sp', 'srn_tk', t].fix(0)
 
         # RFG tank off
         # opt_model.x['rfg', 'rf', 'rfg_tk', t].fix(0)
@@ -17,7 +17,7 @@ def execute_optimization(opt_model):
         # opt_model.x['ccg', 'cc', 'ccg_tk', t].fix(0)
 
         # CCFO tank off
-        opt_model.x['ccfo', 'cc', 'ccfo_tk', t].fix(0)
+        # opt_model.x['ccfo', 'cc', 'ccfo_tk', t].fix(0)
 
     # Shutdown scenarios
     shutdown_conditions = {
