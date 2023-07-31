@@ -354,7 +354,7 @@ class RefineryModel:
             return model.x['crude', 'crude_source', 'ad', t] <= 110000
 
         def ad_capacity(model, t):
-            return model.x['crude', 'crude_source', 'ad', t]  <= 100000 * (1 - model.alpha['ad', t])
+            return model.x['crude', 'crude_source', 'ad', t] <= 100000 * (1 - model.alpha['ad', t])
 
         def rf_capacity(model, t):
             return (model.x['srn', 'srn_sp', 'rf', t] + model.x['srn', 'srn_tk', 'rf', t]) <= 25000 * (1 - model.alpha['rf', t])

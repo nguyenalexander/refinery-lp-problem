@@ -93,34 +93,49 @@ def store_results_pd(opt_model, solver_information):
 
 def plot_charts(results_df, case_number):
     # create figure and subplots
-    fig = plt.figure(figsize=(10, 12), layout='constrained')
-    gs = fig.add_gridspec(10, 4, hspace=0.1, wspace=0.05)
-    axs = gs.subplots(sharex=True, sharey=True)
+    fig = plt.figure(figsize=(16, 6), layout='constrained')
+    gs = fig.add_gridspec(4, 10, hspace=0.05, wspace=0.1)
+    axs = gs.subplots(sharex=True, sharey=False)
 
-    # for each scenario, create the chart for each storage tank
-    for scenario_idx in range(0, results_df.shape[1], 1):
-        scenario_col_name = results_df.columns[scenario_idx]
-
-        # helper function create_chart
-        create_chart(axs[scenario_idx, 0], results_df, 'rfg_tk', scenario_col_name, {'marker': 'o'})
-        create_chart(axs[scenario_idx, 1], results_df, 'ccfo_tk', scenario_col_name, {'marker': 'o'})
-        create_chart(axs[scenario_idx, 2], results_df, 'ccg_tk', scenario_col_name, {'marker': 'o'})
-        create_chart(axs[scenario_idx, 3], results_df, 'srn_tk', scenario_col_name, {'marker': 'o'})
+    # for each tank, create the chart for each scenario
+    tank_list = ['rfg_tk', 'ccfo_tk', 'ccg_tk', 'srn_tk']
+    for tank_idx, tank_name in enumerate(tank_list):
+        for scenario_idx in range(0, results_df.shape[1], 1):
+            scenario_col_name = results_df.columns[scenario_idx]
+            # helper function create_chart
+            create_chart(axs[tank_idx, scenario_idx], results_df, tank_name, scenario_col_name, {'marker': 'o'})
 
     # give each column and row a label/title
-    cols = ['{} Tank'.format(col) for col in ['RFG', 'CCFO', 'CCG', 'SRN']]
-    rows = ['Scenario {0}\n({1})'.format(row, results_df.loc['Termination Condition', row]) for row in range(1, results_df.shape[1]+1, 1)]
+    rows = ['{} Tank'.format(col) for col in ['RFG', 'CCFO', 'CCG', 'SRN']]
+    cols = ['Scenario {0}\n({1})'.format(row, results_df.loc['Termination Condition', row]) for row in range(1, results_df.shape[1]+1, 1)]
 
     # column titles
     for ax, col in zip(axs[0], cols):
         ax.set_title(col)
 
+    # Order: 'RFG', 'CCFO', 'CCG', 'SRN'
+    tank_max = {0: 19000,
+                1: 19000,
+                2: 25000,
+                3: 19000}
+    row_ticks = {0: [0, 6000, 12000, 18000],
+                 1: [0, 6000, 12000, 18000],
+                 2: [0, 8000, 16000, 24000],
+                 3: [0, 6000, 12000, 18000]}
+
+    # set y limits and ticks for each row (tank)
+    for i, j in enumerate(axs):
+        for k in j:
+            k.set_ylim(bottom=0, top=tank_max[i])
+            k.set_yticks(row_ticks[i])
+
     # row labels
     for ax, row in zip(axs[:, 0], rows):
-        ax.set_ylabel(row, rotation=0, size='medium', loc='center', labelpad=40)
+        ax.set_ylabel(row, rotation=0, size='medium', loc='center', labelpad=30)
 
     # set axis limits and ticks and bottom x labels
-    plt.setp(axs, ylim=[0, 18000], yticks=[0, 5000,  10000, 15000], xlim=[1, 5], xticks=[1, 2, 3, 4, 5], xlabel='Period (d)')
+    # plt.setp(axs, ylim=[0, 18000], yticks=[0, 5000,  10000, 15000], xlim=[1, 5], xticks=[1, 2, 3, 4, 5], xlabel='Period (d)')
+    plt.setp(axs, xlim=[1, 5], xticks=[1, 2, 3, 4, 5], xlabel='Period (d)')
 
     # only show the outer labels
     for ax in axs.flat:
@@ -130,7 +145,9 @@ def plot_charts(results_df, case_number):
     fig.suptitle('Tank Inventories (m3) for Case Study {}'.format(case_number))
     fig.get_layout_engine().set(rect=(0, 0, 1, 1))
 
-    fig.show()
+    fig.savefig('./results/case_study_0{}.png'.format(case_number))
+    # fig.show()
+
 
 
 def create_chart(ax, results_df, tank, scenario, param_dict):
