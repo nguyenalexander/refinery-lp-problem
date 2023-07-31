@@ -23,7 +23,7 @@ c_{crude} F_{crude,crude_{source},AD,t} -
 
 $$ F_{crude,crude_{source},AD,t} \leq 110,000 $$
 
-$$ \sum_{\substack{m \\\ i}}^{M_j, \ I_j} F_{m,i,j,t} \leq CAP_{j} \quad \forall \ j \in J,\ t \in T $$
+$$ \sum_{\substack{m \\\ i}}^{M_j, \ I_j} F_{m,i,j,t} \leq CAP_{j,t} \quad \forall \ j \in J,\ t \in T $$
 
 $$ F_{n,j,k,t} = \gamma_{n,j,k} \sum_{\substack{m \\\ i}}^{M_j, \ I_j} F_{m,i,j,t} \quad \forall \ j \in J,\ k \in K_j,\ t \in T $$
 
@@ -91,13 +91,10 @@ $$
 }
 $$
 
-$\alpha_{j,t}$ can then be tied to the sum of the inlet flow rates of the corresponding unit $j$:
+$\alpha_{j,t}$ can then be tied to the capacities of the corresponding unit $j$:
 
 $$
-\eqalign{
-&\sum_{\substack{m \\\ i}}^{M_j, \ I_j} F_{m,i,j,t} \geq (1-\alpha_{j,t}) \ F_{j,t}^{min} \\ 
-&\sum_{\substack{m \\\ i}}^{M_j, \ I_j} F_{m,i,j,t} \leq (1-\alpha_{j,t}) \ F_{j,t}^{max}
-}
+\sum_{\substack{m \\\ i}}^{M_j, \ I_j} F_{m,i,j,t} \leq (1-\alpha_{j,t}) \ CAP_{j,t}
 $$
 
 
