@@ -1,18 +1,12 @@
 import pyomo.environ as pyomo
 import pandas as pd
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def execute_optimization(opt_model):
     """
-    A helper function to receive the instantiated Pyomo Model then solve the optimization problem. Returns the solved model object.
+    Helper function to receive the instantiated Pyomo Model then solve the optimization problem. Returns the solved model object.
     """
-    # e.g. Shutting down reformer for period 4
-    # opt_model.x['srn', 'srn_tk', 'rf', 4].fix(0)
-    # opt_model.x['srn', 'srn_sp', 'rf', 4].fix(0)
-
     # Display instance information
     opt_model.pprint()
 
@@ -24,7 +18,7 @@ def execute_optimization(opt_model):
 
 def print_output(opt_model):
     """
-    A helper function to print the flow rates, then the total profit and production of each product and their properties..
+    Helper function to print the flow rates, then the total profit and production of each product and their properties..
     """
     opt_model.display()
     print('Objective Excluding Tank Holding Costs:', sum(pyomo.value(opt_model.x[c, t] * opt_model.costs[c]) for c in opt_model.costs for t in opt_model.timeperiods))
@@ -44,7 +38,7 @@ def print_output(opt_model):
 
 def store_results_pd(opt_model, solver_information):
     """
-    A helper function to store the optimization results in a dataframe.
+    Helper function to store the optimization results in a dataframe.
     """
     store_index = []
     store_values = []
@@ -92,6 +86,10 @@ def store_results_pd(opt_model, solver_information):
 
 
 def plot_charts(results_df, case_number):
+    """
+    Helper function to create a chart of the tank inventories.
+    """
+
     # create figure and subplots
     fig = plt.figure(figsize=(16, 6), layout='constrained')
     gs = fig.add_gridspec(4, 10, hspace=0.05, wspace=0.1)
@@ -145,20 +143,21 @@ def plot_charts(results_df, case_number):
     fig.suptitle('Tank Inventories (m3) for Case Study {}'.format(case_number))
     fig.get_layout_engine().set(rect=(0, 0, 1, 1))
 
+    # save figure
     fig.savefig('./results/case_study_0{}.png'.format(case_number))
     # fig.show()
-
 
 
 def create_chart(ax, results_df, tank, scenario, param_dict):
     """
     A helper function to make the results graph.
     """
-
+    # create list of the tank inventories m from the results_df with a given tank and scenario
     y = []
     for t in range(1, 6, 1):
         tank_str = 'm[' + tank + ',' + str(t) + ']'
         y.append(results_df.loc[tank_str, scenario])
 
+    # create the plot
     plots_out = ax.plot(range(1, 6, 1), y, **param_dict)
     return plots_out

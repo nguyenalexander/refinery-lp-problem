@@ -229,9 +229,11 @@ class RefineryModel:
         Returns the Pyomo model object for solving.
         """
 
-        # ===============================================================================
-        # ================================ PROBLEM SETUP ================================
-        # ===============================================================================
+        """        
+        ===============================================================================
+        ================================ PROBLEM SETUP ================================
+        ===============================================================================
+        """
 
         # Create abstract model
         model = pyomo.AbstractModel()
@@ -251,16 +253,17 @@ class RefineryModel:
         model.flowpairs = pyomo.Set(within=model.materials * model.unitpairs * model.timeperiods, initialize=[(m, u, t) for m in self.map_to_units for u in self.map_to_units[m] for t in pyomo.RangeSet(1, self.timehorizon, 1)])
 
         # Elements used to create the splitpoints set
-        # sp_materials = material going into splitpoint
-        # sp_uout = unit that material is leaving from
-        # sp_uin = splitpoint node that the material is entering
+        """
+        sp_materials = material going into splitpoint
+        sp_uout = unit that material is leaving from
+        sp_uin = splitpoint node that the material is entering
+        """
         model.sp_materials = pyomo.Set(initialize=(i for (i, j, k, t) in self.splitpoint_dict_mp))
         model.sp_uout = pyomo.Set(initialize=(j for (i, j, k, t) in self.splitpoint_dict_mp))
         model.sp_uin = pyomo.Set(initialize=(k for (i, j, k, t) in self.splitpoint_dict_mp))
 
         # Splitpoints Set - set as the splitpoint_dict_mp keys
         model.splitpoint_set = pyomo.Set(within=model.sp_materials * model.sp_uout * model.sp_uin * model.timeperiods, initialize=list(self.splitpoint_dict_mp.keys()))
-        # model.e1 = pyomo.Set(model.d1, initialize=self.splitpoint_dict_mp1)
 
         # Set for the cost streams
         model.cost_set = pyomo.Set(initialize=list(self.cost_data.keys()))
@@ -320,19 +323,22 @@ class RefineryModel:
         model.tank_holding_cost = pyomo.Param(self.tank_holding_cost_data.keys(), initialize=self.tank_holding_cost_data)
         model.m = pyomo.Var(model.tank_set, model.timeperiods, domain=pyomo.NonNegativeReals)
 
-        # ==============================================================================
-        # ================================= OBJECTIVES =================================
-        # ==============================================================================
-
+        """
+        ==============================================================================
+        ================================= OBJECTIVES =================================
+        ==============================================================================
+        """
         # Objective Function (profit = products - operating cost - crude cost)
         def profit_objective(model):
             return sum(model.x[c, t] * model.costs[c] for c in model.costs for t in model.timeperiods) - sum(model.tank_holding_cost[tank] * model.m[tank, t] for tank in model.tank_set for t in model.timeperiods)
 
         model.objectivefunction = pyomo.Objective(rule=profit_objective, sense=pyomo.maximize)
 
-        # ===============================================================================
-        # ================================= CONSTRAINTS =================================
-        # ===============================================================================
+        """
+        ===============================================================================
+        ================================= CONSTRAINTS =================================
+        ===============================================================================
+        """
 
         # Splitpoint Balances
         def splitpoint_balance(model, mat, uout, uin, t):
@@ -451,10 +457,13 @@ class RefineryModel:
         model.fo_density_req = pyomo.Constraint(model.timeperiods, rule=fo_density)
         model.fo_sulfur_req = pyomo.Constraint(model.timeperiods, rule=fo_sulfur)
 
-        # ===============================================================================
-        # ==================================== TANKS ====================================
-        # ===============================================================================
+        """
+        ===============================================================================
+        ==================================== TANKS ====================================
+        ===============================================================================
+        """
 
+        # Tank Inventory Balance
         def tank_balance(model, tank, t):
             if t == 1:
                 return (model.m[tank, t] - 0)/self.timedelta - sum(model.x[a, b, c, t] for (a, b, c) in model.tank_in_set[tank]) + sum(model.x[d, e, f, t] for (d, e, f) in model.tank_out_set[tank]) == 0
@@ -462,6 +471,7 @@ class RefineryModel:
                 return (model.m[tank, t] - model.m[tank, t-1])/self.timedelta - sum(model.x[a, b, c, t] for (a, b, c) in model.tank_in_set[tank]) + sum(model.x[d, e, f, t] for (d, e, f) in model.tank_out_set[tank]) == 0
         model.tank_volbalance = pyomo.Constraint(model.tank_set, model.timeperiods, rule=tank_balance)
 
+        # Tank Height Maximum
         def tank_height(model, tank, t):
             return model.m[tank, t] * self.bbl_to_m3 / self.tank_area[tank] <= self.tank_height[tank]
         model.tank_height_limit = pyomo.Constraint(model.tank_set, model.timeperiods, rule=tank_height)
